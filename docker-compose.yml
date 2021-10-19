@@ -1,0 +1,99 @@
+version: "3.8"
+
+services:
+  nginx:
+    build:
+      dockerfile: ./Dockerfile.nginx
+      context: ./auth
+    container_name: nginx
+    ports: 
+      - 80:80
+      - 443:443
+    depends_on:
+      - auth-api1
+      - auth-api2
+      - auth-api3
+      - redis
+      - database
+
+  auth-api1:
+    container_name: auth-api1
+    build:
+      context: ./auth
+      dockerfile: ./Dockerfile.dev
+    depends_on:
+      - database
+      - redis
+    volumes:
+      - ./auth:/auth
+    ports:
+      - 5000:5000
+    env_file:
+      - .env
+    entrypoint: ["/bin/bash", "./entrypoints/build_app.sh"]
+
+  auth-api2:
+    container_name: auth-api2
+    build:
+      context: ./auth
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - auth-api1
+      - database
+      - redis
+    volumes:
+      - ./auth:/auth
+    ports:
+      - 5001:5000
+    env_file:
+      - .env
+    entrypoint: ["/bin/bash", "./entrypoints/build_app.sh"]
+
+
+  auth-api3:
+    container_name: auth-api3
+    build:
+      context: ./auth
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - auth-api2
+      - database
+      - redis
+    volumes:
+      - ./auth:/auth
+    ports:
+      - 5002:5000
+    env_file:
+      - .env
+    entrypoint: ["/bin/bash", "./entrypoints/build_app.sh"]
+
+
+  redis:
+    image: redis
+    container_name: ${REDIS_HOST}
+    depends_on:
+      - database
+    ports:
+      - 6379:6379
+
+
+  database:
+    container_name: ${POSTGRES_HOST}
+    image: postgres
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - database-data:/var/lib/postgresql/data
+      - ./docs/db/create.sql:/docker-entrypoint-initdb.d/create.sql
+      - ./docs/db/popula.sql:/docker-entrypoint-initdb.d/popula.sql
+  
+ 
+volumes:
+  database-data:
+
