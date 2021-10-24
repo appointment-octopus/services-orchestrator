@@ -1,26 +1,31 @@
 version: "3.8"
 
 services:
-  nginx:
-    build:
-      dockerfile: ./Dockerfile.nginx
-      context: ./auth
-    container_name: nginx
-    ports: 
-      - 80:80
-      - 443:443
+  database:
+    image: postgres
+    restart: on-failure
+    env_file:
+      - .env
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - database-data:/var/lib/postgresql/data
+      - ./docs/db/create.sql:/docker-entrypoint-initdb.d/create.sql
+      - ./docs/db/popula.sql:/docker-entrypoint-initdb.d/popula.sql
+
+
+  redis:
+    image: redis
     depends_on:
-      - auth-api1
-      - auth-api2
-      - auth-api3
-      - redis
       - database
+    ports:
+      - 6379:6379
+
 
   auth-api1:
-    container_name: auth-api1
     build:
       context: ./auth
-      dockerfile: ./Dockerfile.dev
+      dockerfile: Dockerfile.dev
     depends_on:
       - database
       - redis
@@ -32,15 +37,13 @@ services:
       - .env
     entrypoint: ["/bin/bash", "./entrypoints/build_app.sh"]
 
+
   auth-api2:
-    container_name: auth-api2
     build:
       context: ./auth
       dockerfile: Dockerfile.dev
     depends_on:
       - auth-api1
-      - database
-      - redis
     volumes:
       - ./auth:/auth
     ports:
@@ -51,14 +54,11 @@ services:
 
 
   auth-api3:
-    container_name: auth-api3
     build:
       context: ./auth
       dockerfile: Dockerfile.dev
     depends_on:
       - auth-api2
-      - database
-      - redis
     volumes:
       - ./auth:/auth
     ports:
@@ -68,31 +68,29 @@ services:
     entrypoint: ["/bin/bash", "./entrypoints/build_app.sh"]
 
 
-  redis:
-    image: redis
-    container_name: ${REDIS_HOST}
+  appointments:
+    build:
+      context: ./appointments
+      dockerfile: Dockerfile
     depends_on:
-      - database
+      - auth-api3
+    restart: on-failure:10
+    volumes:
+      - ./appointments:/appointments
     ports:
-      - 6379:6379
-
-
-  database:
-    container_name: ${POSTGRES_HOST}
-    image: postgres
-    restart: on-failure
+      - 3000:3000
     env_file:
       - .env
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
-    volumes:
-      - database-data:/var/lib/postgresql/data
-      - ./docs/db/create.sql:/docker-entrypoint-initdb.d/create.sql
-      - ./docs/db/popula.sql:/docker-entrypoint-initdb.d/popula.sql
-  
+
+  nginx:
+    build:
+      dockerfile: ./Dockerfile.nginx
+      context: ./auth
+    ports: 
+      - 80:80
+      - 443:443
+    depends_on:
+      - appointments
  
 volumes:
   database-data:
