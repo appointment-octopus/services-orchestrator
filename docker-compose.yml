@@ -74,7 +74,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - auth-api3
-    restart: on-failure:10
+    restart: on-failure
     volumes:
       - ./appointments:/appointments
     ports:
